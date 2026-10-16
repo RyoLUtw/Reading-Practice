@@ -25,6 +25,25 @@
   // Replace each break character separately to retain the source-offset mapping.
   function singleLineUnit(text) { return String(text || '').replace(/[\r\n]/g, ' '); }
 
+  // Common terms whose final digits are part of the word, not textbook references.
+  const numberedTerms = new Set([
+    'covid19', 'sars2', 'hiv1', 'hiv2', 'h1n1', 'h5n1',
+    'co2', 'o2', 'h2o', 'n2', 'no2', 'so2', 'o3', 'ch4',
+    'b1', 'b2', 'b3', 'b5', 'b6', 'b7', 'b9', 'b12', 'd2', 'd3', 'k2',
+    'mp3', 'mp4', 'h264', 'h265', 'html5', 'css3', 'utf8', 'ipv4', 'ipv6',
+    'ps4', 'ps5', 'usb2', 'usb3', 'g7', 'g8', 'g20', 'a4', 'a3',
+    'ww1', 'ww2', 'f1', 'r2d2', 'c3po'
+  ]);
+  function cleanTextbookText(text) {
+    return String(text || '').replace(/\*/g, '')
+      .replace(/[\p{L}\p{N}_-]+/gu, token => {
+        if (numberedTerms.has(token.toLowerCase())) return token;
+        // Keep mixed identifiers (H2O, GPT-4, 3D) and standalone numbers intact.
+        return token.replace(/^([\p{L}]+)[0-9]+$/u, '$1');
+      })
+      .replace(/\s+/gu, ' ').trim();
+  }
+
   // An uncertain failure retains its ID and payload for an idempotent retry. New edits
   // queue behind it, never race a Finish or overwrite another tab's save version.
   class DraftSaver {
@@ -112,7 +131,7 @@
       try { await this.running; } finally { this.running = null; }
     }
   }
-  const core = {proposeUnits, singleLineUnit, DraftSaver};
+  const core = {proposeUnits, singleLineUnit, cleanTextbookText, DraftSaver};
   if (typeof module !== 'undefined') module.exports = core;
   else window.ReadingCore = core;
 })();

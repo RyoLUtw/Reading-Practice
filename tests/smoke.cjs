@@ -6,6 +6,26 @@ const root=path.resolve(__dirname,'..');
  page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
  await page.route('https://reading-test.github.io/reading-practice/**',route=>{const pathname=new URL(route.request().url()).pathname.replace('/reading-practice','');const file=path.join(root,pathname==='/'?'index.html':pathname);route.fulfill({body:fs.readFileSync(file),contentType:file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html'});});
  await page.goto('https://reading-test.github.io/reading-practice/');
+
+ const {cleanTextbookText}=require('../assets/reading-core.js');
+ assert.equal(cleanTextbookText('This protest paralyzed12 the entire nation. However, if\nit had not been for this protest, public opinion would not\nhave changed. Gender Equality Council13 and the Gender Equality Act*, banning14'), 'This protest paralyzed the entire nation. However, if it had not been for this protest, public opinion would not have changed. Gender Equality Council and the Gender Equality Act, banning');
+ assert.equal(cleanTextbookText('COVID19 covid19 CO2 B12 MP3 HTML5 H1N1 H2O GPT-4 3D 2026 3.14'), 'COVID19 covid19 CO2 B12 MP3 HTML5 H1N1 H2O GPT-4 3D 2026 3.14');
+ assert.equal(cleanTextbookText('Council13, word12* and banning14. café15'), 'Council, word and banning. café');
+ await page.getByRole('button',{name:'Paste text',exact:true}).click();
+ const marked='This protest paralyzed12 the entire nation.\nCOVID19 and Council13 passed the Act*.';
+ await page.locator('#text').fill(marked);await page.locator('#parse').click();
+ assert.equal(await page.getByRole('textbox',{name:'Unit 1',exact:true}).inputValue(),'This protest paralyzed the entire nation.');
+ assert.equal(await page.getByRole('textbox',{name:'Unit 2',exact:true}).inputValue(),'COVID19 and Council passed the Act.');
+ await page.locator('#cleanup').uncheck();assert.equal(await page.locator('.unit').count(),0);
+ await page.locator('#parse').click();assert.match(await page.getByRole('textbox',{name:'Unit 1',exact:true}).inputValue(),/paralyzed12/);
+ await page.locator('#cleanup').check();await page.locator('#parse').click();
+ await page.getByRole('textbox',{name:'Unit 2',exact:true}).fill('Keep a custom term Model42.');
+ await page.getByRole('button',{name:'Confirm units & start practice'}).click();
+ assert.equal(await page.locator('.original').textContent(),marked);
+ assert.match(await page.locator('.passage-unit').nth(1).textContent(),/Model42/);
+ await page.getByRole('button',{name:'My practices',exact:true}).click();
+ await page.getByRole('button',{name:'Delete',exact:true}).click();
+
  await page.getByRole('button',{name:'Paste text',exact:true}).click();await page.locator('#title').fill('A small journey');await page.locator('#text').fill('We left after they arrived. It was sunny.');await page.locator('#parse').click();assert.equal(await page.locator('.unit').count(),2);
  await page.getByRole('button',{name:'Confirm units & start practice'}).click();assert.equal(await page.locator('.passage-unit').count(),2);assert.equal(await page.locator('#review-activity').isVisible(),false);
  await page.locator('.passage-unit').first().click();await page.locator('[data-clause-action="step2"]').click();await page.locator('[data-clause-input="sentence"]').fill('他們抵達後，我們離開。');await page.locator('[data-clause-action="finish"]').click();await page.locator('[data-clause-action="finish-back"]').click();assert.equal(await page.locator('.passage-unit.completed').count(),1);
