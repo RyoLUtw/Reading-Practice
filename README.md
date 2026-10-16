@@ -23,14 +23,14 @@ Opening `index.html` directly is possible for preview, but local-file browser st
 
 ## Personal Google Drive
 
-Your supplied public OAuth client ID is already configured in `config.js`. No API key or client secret is needed.
+Your supplied public OAuth client ID is already configured in `config.js`. The app uses this ID automatically; users only sign in to Google. To deploy with a different OAuth app, edit config.js. No API key or client secret is needed.
 
 1. Enable the Google Drive API in the client's Google Cloud project and configure OAuth consent. For an app in testing, add the intended accounts as test users.
 2. In the OAuth Web application's **Authorized JavaScript origins**, add `https://YOUR-USERNAME.github.io` using your actual username. Do **not** include `/reading-practice/` or another path. For a custom domain, add its HTTPS origin instead.
 3. Open the hosted app and choose Backup & restore → Back up to Google Drive. Sign in to your personal account.
-4. Choose Find Drive backups to restore snapshots as new copies.
+4. Choose Find Drive backups to see each snapshot’s practice titles and completed-unit counts before restoring it as new copies. This also works for older backups with timestamp-only filenames.
 
-Uses Google Identity Services and only the `drive.appdata` scope. Backups live in Drive's hidden app-data folder, accessible through this OAuth app. Use the same client ID on other devices. Backups are manual snapshots, not automatic sync. Access tokens remain in memory and expire. JSON export/import works without Google configuration or internet.
+Uses Google Identity Services and only the `drive.appdata` scope. Backups live in Drive's hidden app-data folder, accessible through this OAuth app. Use the same client ID on other devices. Backups are manual snapshots, not automatic sync. Downloaded JSON and Drive backup names include the first practice title, a count of additional practices, and a timestamp. All practices are still included in each snapshot; existing backups remain restorable. Access tokens remain in memory and expire. JSON export/import works without Google configuration or internet.
 
 References: [Browser token flow](https://developers.google.com/identity/oauth2/web/guides/use-token-model), [OAuth origin requirements](https://developers.google.com/identity/protocols/oauth2/javascript-implicit-flow), [Drive app data](https://developers.google.com/workspace/drive/api/guides/appdata).
 
@@ -39,3 +39,5 @@ References: [Browser token flow](https://developers.google.com/identity/oauth2/w
 All runtime files are independent copies in this folder. There are no parent-folder imports, platform APIs, `.env`, or database connections. Database mode is **none** (browser storage only).
 
 Only developers running tests need Node.js 20+ and Playwright with Chrome. Run `node tests/smoke.cjs`. Tests intercept static file requests at a simulated GitHub Pages repository URL without starting an application server. They cover parsing, passage navigation, sentence completion, reload/resume, JSON restore, and simulated Drive upload/list/restore. Real Google OAuth consent must be verified on the published domain.
+
+Drive backups can be permanently deleted individually with Delete backup, or in batches using the checkboxes (including Select all backups) and Delete selected. Confirm the selection before deletion. Local practices are kept; failed deletions remain listed for retry.

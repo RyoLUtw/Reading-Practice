@@ -13,7 +13,12 @@ function validateBackup(data){
 }
 try{const raw=localStorage.getItem(STORE);if(raw)practices=validateBackup({app:'reading-practice-standalone',version:1,practices:JSON.parse(raw)});}catch(e){storageFailed=true;notice('Saved data could not be loaded. Export the stored data before restoring a backup.',true);}
 function backup(){return {app:'reading-practice-standalone',version:1,exportedAt:new Date().toISOString(),practices};}
-function download(data,name='reading-practice-backup.json'){const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function backupName(data){
+  const title=Array.from((data.practices[0]?.title||'empty-library').normalize('NFC').replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g,'-').replace(/\s+/g,' ').trim()).slice(0,80).join('').replace(/[. ]+$/g,'')||'Untitled practice';
+  const more=data.practices.length>1?` + ${data.practices.length-1} more`:'';
+  return `reading-practice-${title}${more}-${data.exportedAt.replace(/[:.]/g,'-')}.json`;
+}
+function download(data,name=backupName(data)){const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function restore(data){const incoming=validateBackup(data);if(!confirm(`Import ${incoming.length} practices as new copies? Existing practices will be kept.`))return;const old=practices;practices=[...practices,...incoming.map(p=>({...structuredClone(p),id:crypto.randomUUID(),title:p.title+' (restored)'}))];try{persist();}catch(e){practices=old;throw e;}home();notice('Backup restored. Existing practices were kept.');}
 function shell(html){state.game=null;active=null;$('#review-activity').hidden=true;$('#review-activity').replaceChildren();$('#main').hidden=false;$('#main').innerHTML=html;}
 function button(label,fn){const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>Promise.resolve().then(fn).catch(e=>notice(e.message,true));return b;}
@@ -22,7 +27,73 @@ function editor(){shell('<h2>Start with a text</h2><label>Practice title (option
 function passage(p){shell(`<h2>${escapeHtml(p.title)}</h2><p>${p.units.filter(u=>u.status==='completed').length} / ${p.units.length} completed · Choose a unit to practice.</p><details><summary>Original pasted text</summary><p class="original">${escapeHtml(p.passage)}</p></details><div id="passage"></div>`);p.units.forEach((u,i)=>{const b=button(`${i+1}. ${u.text} — ${u.status}`,()=>practice(p,i));b.className='passage-unit '+u.status;$('#passage').append(b);});}
 function practice(p,index){active={p,index};$('#main').hidden=true;$('#review-activity').hidden=false;const unit=p.units[index];initializeReadingSentence({sentence:unit.text,title:p.title,position:index+1,total:p.units.length,savedState:unit.savedState,onChange:s=>{if(JSON.stringify(unit.savedState)!==JSON.stringify(s))unit.status='draft';unit.savedState=s;try{persist();}catch{}},onCheckpoint:async()=>persist(),onFinish:async s=>{unit.savedState=s;unit.status='completed';persist();notice('Sentence completed and saved in this browser.');},onBack:async()=>passage(p),onNext:async()=>index+1<p.units.length?practice(p,index+1):passage(p),completedCount:()=>p.units.filter(u=>u.status==='completed').length});}
 renderSentenceTranslationTop=prompt=>`<div class="panel sentence-comic-header"><div><p class="eyebrow">${escapeHtml(state.game.reading.title)} · Unit ${state.game.reading.position} / ${state.game.reading.total}</p><h2>${escapeHtml(prompt.sourceText)}</h2><p>Subject / Predicate / Adverbial</p></div></div>`;
-function backups(){shell('<h2>Backup & restore</h2><p>Export all practices and saved progress, or keep a backup in your personal Google Drive. Clause dialogs must be saved before backing up.</p><div id="local" class="actions"></div><label>Import a JSON backup<input id="import" type="file" accept=".json,application/json"></label><hr><h3>Personal Google Drive</h3><p>Uses a private app-data folder in your Google Drive. Sign in when you back up or restore. No client secret or API key is needed.</p><label>Google OAuth Web client ID<input id="client" type="text" placeholder="…apps.googleusercontent.com"></label><div id="cloud" class="actions"></div><div id="remote"></div>');$('#local').append(button('Export backup',()=>download(backup())));$('#import').onchange=async e=>{try{const file=e.target.files[0];if(file.size>20000000)throw Error('Backup is too large (maximum 20 MB).');restore(JSON.parse(await file.text()));}catch(e){notice(e.message,true);}};$('#client').value=localStorage.getItem('reading-drive-client')||window.READING_GOOGLE_CLIENT_ID||'';$('#client').onchange=()=>localStorage.setItem('reading-drive-client',$('#client').value.trim());$('#cloud').append(button('Back up to Google Drive',async()=>{await ReadingDrive.upload($('#client').value.trim(),backup());notice('Backup saved to your personal Google Drive.');}),button('Find Drive backups',async()=>{const files=await ReadingDrive.list($('#client').value.trim());$('#remote').replaceChildren();if(!files.length)$('#remote').textContent='No backups found for this Google account and app.';for(const file of files)$('#remote').append(button(`Restore ${file.name} (${new Date(file.modifiedTime).toLocaleString()})`,async()=>restore(await ReadingDrive.read(file.id))));}));}
+function backups(){shell('<h2>Backup & restore</h2><p>Export all practices and saved progress, or keep a backup in your personal Google Drive. Clause dialogs must be saved before backing up.</p><div id="local" class="actions"></div><label>Import a JSON backup<input id="import" type="file" accept=".json,application/json"></label><hr><h3>Personal Google Drive</h3><p>Uses a private app-data folder in your Google Drive. Sign in when you back up or restore. No client secret or API key is needed.</p><div id="cloud" class="actions"></div><div id="remote"></div>');$('#local').append(button('Export backup',()=>download(backup())));$('#import').onchange=async e=>{try{const file=e.target.files[0];if(file.size>20000000)throw Error('Backup is too large (maximum 20 MB).');restore(JSON.parse(await file.text()));}catch(e){notice(e.message,true);}};$('#cloud').append(button('Back up to Google Drive',async()=>{await ReadingDrive.upload(backup());notice('Backup saved to your personal Google Drive.');}),button('Find Drive backups',findDriveBackups));}
+async function findDriveBackups(){
+  const remote=$('#remote');
+  remote.textContent='Finding backups…';
+  const files=await ReadingDrive.list();
+  if(!remote.isConnected)return;
+  remote.replaceChildren();
+  if(!files.length){remote.textContent='No backups found for this Google account and app.';return;}
+  let busy=false;
+  const toolbar=document.createElement('div');toolbar.className='actions';
+  const selectLabel=document.createElement('label'),selectAll=document.createElement('input');selectAll.type='checkbox';
+  selectLabel.append(selectAll,' Select all backups');
+  const deleteSelected=button('Delete selected',()=>removeRows(rows.filter(row=>row.card.isConnected&&row.selected.checked)));
+  toolbar.append(selectLabel,deleteSelected);remote.append(toolbar);
+  function updateSelection(){
+    const remaining=rows.filter(row=>row.card.isConnected),count=remaining.filter(row=>row.selected.checked).length;
+    selectAll.checked=remaining.length>0&&count===remaining.length;
+    selectAll.indeterminate=count>0&&count<remaining.length;
+    deleteSelected.textContent='Delete selected ('+count+')';deleteSelected.disabled=busy||count===0;
+  }
+  selectAll.onchange=()=>{for(const row of rows)row.selected.checked=selectAll.checked;updateSelection();};
+  async function removeRows(targets){
+    if(busy||!targets.length)return;
+    const names=targets.map(row=>row.heading.textContent+' ('+new Date(row.file.modifiedTime).toLocaleString()+')').join('\n');
+    if(!confirm('Permanently delete '+targets.length+' Drive backup(s)? This cannot be undone. Your local practices will be kept.\n\n'+names))return;
+    busy=true;remote.querySelectorAll('button,input').forEach(el=>el.disabled=true);
+    let removed=0;const failures=[];
+    for(const row of targets){
+      try{await ReadingDrive.remove(row.file.id);row.card.remove();removed++;}
+      catch(error){failures.push(row.file.name+': '+error.message);}
+    }
+    busy=false;remote.querySelectorAll('button,input').forEach(el=>el.disabled=false);updateSelection();
+    if(!rows.some(row=>row.card.isConnected))remote.textContent='No backups found for this Google account and app.';
+    notice(removed+' backup(s) deleted.'+(failures.length?' Could not delete '+failures.length+' backup(s). '+failures.join(' '):''),failures.length>0);
+  }
+  const rows=files.map(file=>{
+    const card=document.createElement('article');card.className='backup-card';
+    const heading=document.createElement('h4');heading.textContent='Loading practice titles…';
+    const date=document.createElement('p');date.className='muted';date.textContent=new Date(file.modifiedTime).toLocaleString();
+    const contents=document.createElement('ul');
+    const restoreButton=button('Restore backup',async()=>restore(await ReadingDrive.read(file.id)));
+    const selected=document.createElement('input');selected.type='checkbox';selected.onchange=updateSelection;
+    const label=document.createElement('label');label.append(selected,' Select backup');
+    const row={file,card,heading,contents,selected};
+    const deleteButton=button('Delete backup',()=>removeRows([row]));
+    card.append(label,heading,date,contents,restoreButton,deleteButton);remote.append(card);
+    return row;
+  });
+  updateSelection();
+  for(const {file,card,heading,contents} of rows){
+    if(!remote.isConnected)return;
+    if(!card.isConnected)continue;
+    try{
+      const saved=validateBackup(await ReadingDrive.read(file.id));
+      heading.textContent=saved.length===1?saved[0].title||'Untitled practice':saved.length+' practices';
+      for(const practice of saved){
+        const item=document.createElement('li');
+        item.textContent=(practice.title||'Untitled practice')+' — '+practice.units.filter(unit=>unit.status==='completed').length+' / '+practice.units.length+' completed';
+        contents.append(item);
+      }
+      if(!saved.length)heading.textContent='Empty backup';
+    }catch(error){
+      heading.textContent=file.name;
+      const message=document.createElement('li');message.textContent='Could not load practice titles: '+error.message;contents.append(message);
+    }
+  }
+}
 function navigate(fn){if(document.querySelector('[data-clause-input="natural"], [data-clause-input="revision"]')&&!confirm('Leave this dialog? Unsaved dialog changes will be discarded.'))return;fn();}
 $('#home').onclick=()=>navigate(home);$('#new').onclick=()=>navigate(editor);$('#backups').onclick=()=>navigate(backups);
 document.addEventListener('click',e=>{if(state.game)Promise.resolve(handleSentenceTranslationClick(e)).catch(error=>notice(error.message,true));});document.addEventListener('input',e=>{if(state.game)handleSentenceTranslationInput(e);});
