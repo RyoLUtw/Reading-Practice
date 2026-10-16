@@ -1,0 +1,8 @@
+body {display:block;min-height:100vh;background:#f5f6f1;color:#203b35;padding:0 24px 60px}
+.app-header {max-width:1150px;margin:32px auto;display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap}
+h1 {margin:4px 0} nav,.actions {display:flex;gap:10px;flex-wrap:wrap} main,#review-activity,#notice {max-width:1150px;margin:18px auto}
+main {background:white;border:1px solid #dce3dc;border-radius:18px;padding:28px} [hidden] {display:none!important}
+button {cursor:pointer;border:1px solid #b9cec2;background:#f3f7f3;color:#244c3f;padding:9px 15px;border-radius:9px;font:inherit} button:hover {background:#e3eee5} button:focus-visible {outline:3px solid #6ba6cc;outline-offset:2px} button:disabled {opacity:.5;cursor:default} .practice-card>button {margin-right:8px} label {display:block;margin:16px 0} textarea,input[type=text],input[type=url] {width:100%;box-sizing:border-box} textarea {min-height:90px}
+.unit,.practice-card {border:1px solid #dce3dc;border-radius:12px;padding:18px;margin:16px 0}.unit label {margin:0 0 8px}.unit textarea {margin-bottom:12px}
+.passage-unit {display:block;text-align:left;width:100%;padding:16px;margin:10px 0;white-space:pre-wrap;line-height:1.7}.passage-unit.completed {border-left:5px solid #367b63}.muted {color:#65746e} .original {white-space:pre-wrap;line-height:1.8} #notice {min-height:24px} #notice.error {color:#a32c28}
+@media(max-width:640px){body{padding:0 12px 32px}main{padding:18px}.app-header{margin:20px auto}}
